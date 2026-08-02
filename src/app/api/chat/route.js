@@ -18,13 +18,12 @@ export async function POST(request) {
         }
 
         // ২. গ্রুপ মেনশন চেক (মেসেজে '@' থাকলে ইগনোর করবে)
-        if (message.includes('@')) {
+        if (message && message.includes('@')) {
             return new NextResponse(""); 
         }
 
         // ৩. ইমোজি চেক (যদি মেসেজে শুধুমাত্র ইমোজি থাকে, তবে সেটাই ব্যাক করবে)
-        // Regex ব্যবহার করে চেক করা হচ্ছে মেসেজটি পুরোটাই ইমোজি কি না
-        const isOnlyEmoji = /^[\p{Emoji}\s]+$/u.test(message) && message.trim().length > 0;
+        const isOnlyEmoji = message && /^[\p{Emoji}\s]+$/u.test(message) && message.trim().length > 0;
         
         if (isOnlyEmoji) {
             // ডেটাবেসে লগ সেভ করা
@@ -36,17 +35,20 @@ export async function POST(request) {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         
-        // ৫. প্রম্পট আপডেট (স্মার্ট রিপ্লাই এবং রিফিউজালের লজিক)
-        const prompt = `তুমি MD. TOWFIQUR RAHMAN-এর হয়ে মেসেঞ্জারে রিপ্লাই দিচ্ছ। 
-        মেসেজটি পাঠিয়েছে ${sender}, সে লিখেছে: "${message}"। 
+        // ৫. প্রম্পট আপডেট (স্মার্ট ও স্বাভাবিক কথোপকথনের জন্য ফিক্সড)
+        const prompt = `তুমি MD. TOWFIQUR RAHMAN-এর হয়ে মেসেঞ্জারে চ্যাট করছ। 
+        তোমার বন্ধু বা পরিচিত ${sender} তোমাকে এই মেসেজটি পাঠিয়েছে: "${message}"। 
         
         নির্দেশনা:
-        ১. উত্তরটি খুব ছোট, স্বাভাবিক এবং বন্ধুসুলভ হবে। 
-        ২. তুমি যদি মনে করো এই মেসেজের উত্তর তোমার (AI) দেওয়া উচিত নয়, অথবা এমন কোনো সংবেদনশীল/অজানা প্রশ্ন, তাহলে তুমি বলবে: "আমি এখন একটু ব্যস্ত আছি, পরে কথা বলছি।" বা "আমি এখন লাইনে নেই, ফ্রি হয়ে রিপ্লাই দিচ্ছি।"
-        ৩. কোনোভাবেই উল্লেখ করবে না যে তুমি একজন এআই।`;
+        ১. উত্তরটি একদম সংক্ষিপ্ত, মানুষের মতো স্বাভাবিক, ক্যাজুয়াল এবং বন্ধুসুলভ হবে (যেমনটা মেসেঞ্জারে চ্যাট করার সময় মানুষ লেখে)। 
+        ২. কোনো কৃত্রিম বা ফরমাল ভাষা ব্যবহার করবে না। উত্তর যেন মুখস্থ বা রোবটিক না লাগে।
+        ৩. কোনোভাবেই উল্লেখ করবে না যে তুমি একজন এআই বা বট। সরাসরি সাধারণ মানুষের মতো উত্তর দাও।`;
         
         const result = await model.generateContent(prompt);
-        const replyText = result.response.text().trim();
+        let replyText = result.response.text().trim();
+        
+        // জেমিনি অনেক সময় উত্তরে অতিরিক্ত কোটেশন মার্ক (" ") জুড়ে দেয়, সেটা পরিষ্কার করা
+        replyText = replyText.replace(/^["']|["']$/g, '');
         
         // ৬. ডেটাবেসে লগ সেভ করা
         const { error } = await supabase
@@ -59,11 +61,12 @@ export async function POST(request) {
             console.error("Database saving error:", error);
         }
         
-        // ৭. MacroDroid-এর জন্য প্লেইন টেক্সট রিটার্ন করা (JSON নয়)
+        // ৭. MacroDroid-এর জন্য প্লেইন টেক্সট রিটার্ন করা
         return new NextResponse(replyText);
 
     } catch (error) {
-        console.error(error);
-        return new NextResponse("আমি এখন একটু ব্যস্ত আছি, পরে কথা বলছি।");
+        console.error("API Error:", error);
+        // জরুরি প্রয়োজনে ফলব্যাক টেক্সট, যা এখন আর অযথা আসবে না
+        return new NextResponse("হুম, বলো?"); 
     }
 }
