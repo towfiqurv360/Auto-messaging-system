@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-
+// Supabase Initialization
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
@@ -14,13 +14,13 @@ export default function Home() {
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Hydration error 
+  // Hydration & Real-time Fetching
   useEffect(() => {
     setMounted(true);
     fetchLogs();
 
-   
-    const interval = setInterval(fetchLogs, 10000);
+    // প্রতি ৫ সেকেন্ড পর পর নতুন মেসেজ চেক করবে
+    const interval = setInterval(fetchLogs, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -33,10 +33,12 @@ export default function Home() {
       const { data, error } = await supabase
         .from('message_logs')
         .select('*')
-        .order('id', { ascending: false })
-        .limit(10); 
+        .order('created_at', { ascending: false }) // id এর বদলে created_at দিয়ে ফিল্টার
+        .limit(15); 
 
-      if (!error && data) {
+      if (error) {
+        console.error("Supabase Error:", error.message);
+      } else if (data) {
         setLogs(data);
       }
     } catch (err) {
@@ -49,163 +51,162 @@ export default function Home() {
   if (!mounted) return null;
 
   return (
-    <div className={`min-h-screen font-sans relative flex flex-col transition-colors duration-700 ${isDarkMode ? 'bg-[#050505] text-gray-200 selection:bg-indigo-500/30' : 'bg-[#f0f4f8] text-gray-800 selection:bg-indigo-500/20'}`}>
+    <div className={`min-h-screen font-sans relative flex flex-col transition-colors duration-700 overflow-hidden ${isDarkMode ? 'bg-[#000000] text-gray-200' : 'bg-[#f8fafc] text-gray-800'}`}>
       
-      {/* Background Glow Effects */}
-      <div className={`fixed top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none transition-colors duration-700 ${isDarkMode ? 'bg-indigo-600/20' : 'bg-indigo-400/10'}`}></div>
-      <div className={`fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none transition-colors duration-700 ${isDarkMode ? 'bg-purple-600/20' : 'bg-purple-300/20'}`}></div>
+      {/* Dynamic Background Glow Effects */}
+      <div className={`fixed top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[150px] pointer-events-none transition-colors duration-1000 ${isDarkMode ? 'bg-indigo-900/40' : 'bg-indigo-300/30'}`}></div>
+      <div className={`fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[150px] pointer-events-none transition-colors duration-1000 ${isDarkMode ? 'bg-emerald-900/30' : 'bg-blue-300/30'}`}></div>
 
-      {/* Enterprise Navbar */}
-      <nav className={`sticky top-0 z-50 w-full backdrop-blur-xl border-b transition-colors duration-700 ${isDarkMode ? 'bg-[#050505]/70 border-white/[0.05]' : 'bg-white/70 border-gray-200 shadow-sm'}`}>
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${isDarkMode ? 'bg-indigo-500/20 border-indigo-500/30' : 'bg-indigo-100 border-indigo-200'}`}>
-              <span className="text-lg">🤖</span>
+      {/* Premium Glassmorphism Navbar */}
+      <nav className={`sticky top-0 z-50 w-full backdrop-blur-2xl border-b transition-colors duration-700 ${isDarkMode ? 'bg-[#0a0a0a]/70 border-white/[0.08]' : 'bg-white/70 border-gray-200/80 shadow-sm'}`}>
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-lg ${isDarkMode ? 'bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border-indigo-500/30' : 'bg-gradient-to-br from-indigo-100 to-purple-100 border-indigo-200'}`}>
+              <span className="text-xl">⚡</span>
             </div>
-            <span className={`font-bold tracking-wide ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>NeuralReply</span>
+            <div>
+              <h1 className={`font-black text-xl tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>AutoReply<span className="text-indigo-500">.AI</span></h1>
+              <p className={`text-[10px] uppercase tracking-widest font-semibold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Enterprise Dashboard</p>
+            </div>
           </div>
           
-          <div className="flex items-center gap-4">
-            <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-600'}`}>
-              <span className="relative flex h-2 w-2">
+          <div className="flex items-center gap-5">
+            <div className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-bold shadow-inner ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-600'}`}>
+              <span className="relative flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
               </span>
-              System Active
+              System Live
             </div>
             <button 
               onClick={() => setIsDarkMode(!isDarkMode)}
-              className={`p-2 rounded-full transition-all duration-300 ${isDarkMode ? 'bg-white/10 hover:bg-white/20 text-yellow-400' : 'bg-gray-100 hover:bg-gray-200 text-indigo-600'}`}
-              title="Toggle Theme"
+              className={`p-2.5 rounded-full transition-all duration-300 shadow-md ${isDarkMode ? 'bg-white/10 hover:bg-white/20 text-yellow-400' : 'bg-white hover:bg-gray-50 text-indigo-600 border border-gray-200'}`}
             >
               {isDarkMode ? (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fillRule="evenodd" clipRule="evenodd"></path></svg>
               ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
               )}
             </button>
           </div>
         </div>
       </nav>
 
-      {/* Main Content Area */}
-      <main className="flex-grow w-full max-w-7xl mx-auto px-6 py-12 relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* Main Content */}
+      <main className="flex-grow w-full max-w-7xl mx-auto px-6 py-10 relative z-10 flex flex-col lg:flex-row gap-10">
         
-        {/* Left Column: Hero & Stats (Spans 5 columns on large screens) */}
-        <div className="lg:col-span-5 flex flex-col justify-center">
-          <h1 className={`text-4xl md:text-6xl font-extrabold mb-4 tracking-tight transition-colors duration-700 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            Autopilot <br />
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-500 animate-gradient-x">
-              Engaged.
-            </span>
-          </h1>
-          <p className={`text-base mb-10 leading-relaxed transition-colors duration-700 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Your background daemon is currently intercepting notifications, analyzing context via Gemini LLM, and dispatching human-like responses seamlessly.
-          </p>
+        {/* Left Side: Stats & Info */}
+        <div className="w-full lg:w-1/3 flex flex-col gap-6">
+          <div className={`p-8 rounded-3xl border backdrop-blur-xl ${isDarkMode ? 'bg-[#111111]/80 border-white/[0.05]' : 'bg-white border-gray-200/80 shadow-xl shadow-indigo-100/40'}`}>
+            <h2 className={`text-4xl font-extrabold mb-2 tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 animate-gradient-x">
+                Gemini AI
+              </span><br/> Interceptor
+            </h2>
+            <p className={`text-sm mt-4 leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              System is actively monitoring incoming notifications and utilizing Google Generative AI to dispatch human-like intelligent responses in real-time.
+            </p>
 
-          {/* Quick Stats Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className={`p-5 rounded-2xl border transition-all duration-300 ${isDarkMode ? 'bg-white/[0.02] border-white/[0.05]' : 'bg-white border-gray-200 shadow-sm'}`}>
-              <p className={`text-xs uppercase tracking-wider mb-1 font-semibold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Engine Status</p>
-              <p className={`text-xl font-bold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>Operational</p>
-            </div>
-            <div className={`p-5 rounded-2xl border transition-all duration-300 ${isDarkMode ? 'bg-white/[0.02] border-white/[0.05]' : 'bg-white border-gray-200 shadow-sm'}`}>
-              <p className={`text-xs uppercase tracking-wider mb-1 font-semibold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Responses Sent</p>
-              <p className={`text-xl font-bold ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>{logs.length > 0 ? logs.length + '+' : '0'}</p>
+            <div className="mt-8 space-y-4">
+              <div className={`p-4 rounded-2xl flex items-center justify-between border ${isDarkMode ? 'bg-black/50 border-white/[0.05]' : 'bg-gray-50 border-gray-100'}`}>
+                <span className={`text-sm font-semibold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Handled</span>
+                <span className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-indigo-600'}`}>{logs.length > 0 ? logs.length : '0'}</span>
+              </div>
+              <div className={`p-4 rounded-2xl flex items-center justify-between border ${isDarkMode ? 'bg-black/50 border-white/[0.05]' : 'bg-gray-50 border-gray-100'}`}>
+                <span className={`text-sm font-semibold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Database Link</span>
+                <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-md">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Connected
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Right Column: Live Activity Feed (Spans 7 columns on large screens) */}
-        <div className="lg:col-span-7">
-          <div className={`h-full min-h-[500px] rounded-3xl border backdrop-blur-xl flex flex-col overflow-hidden transition-all duration-300 ${isDarkMode ? 'bg-white/[0.02] border-white/[0.05]' : 'bg-white/80 border-gray-200 shadow-xl shadow-indigo-100/40'}`}>
+        {/* Right Side: Chat Interface Log */}
+        <div className="w-full lg:w-2/3">
+          <div className={`h-[650px] rounded-3xl border backdrop-blur-xl flex flex-col overflow-hidden ${isDarkMode ? 'bg-[#111111]/80 border-white/[0.05]' : 'bg-white border-gray-200/80 shadow-2xl shadow-indigo-100/50'}`}>
             
-            {/* Feed Header */}
-            <div className={`px-6 py-5 border-b flex items-center justify-between ${isDarkMode ? 'border-white/[0.05]' : 'border-gray-100'}`}>
-              <h3 className={`font-semibold text-lg flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                Live Execution Logs
-              </h3>
-              <button onClick={fetchLogs} className={`text-xs px-3 py-1.5 rounded-full transition-colors ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>
-                Refresh
+            {/* Log Header */}
+            <div className={`px-6 py-5 border-b flex items-center justify-between backdrop-blur-md ${isDarkMode ? 'border-white/[0.05] bg-black/20' : 'border-gray-100 bg-gray-50/50'}`}>
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
+                  <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+                  <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
+                </div>
+                <h3 className={`font-semibold ml-2 text-sm tracking-wide ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Live Terminal Feed
+                </h3>
+              </div>
+              <button onClick={fetchLogs} className={`text-xs px-4 py-1.5 rounded-full font-medium transition-all ${isDarkMode ? 'bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300' : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'}`}>
+                Force Sync
               </button>
             </div>
 
-            {/* Feed Content */}
-            <div className="flex-grow p-6 overflow-y-auto custom-scrollbar">
+            {/* Chat Body */}
+            <div className="flex-grow p-6 overflow-y-auto custom-scrollbar flex flex-col gap-6">
               {isLoading ? (
-                // Loading Skeleton
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className={`p-4 rounded-2xl animate-pulse ${isDarkMode ? 'bg-white/5' : 'bg-gray-100'}`}>
-                      <div className={`h-4 w-1/4 rounded mb-3 ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`}></div>
-                      <div className={`h-3 w-3/4 rounded mb-2 ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`}></div>
-                      <div className={`h-3 w-1/2 rounded ${isDarkMode ? 'bg-white/10' : 'bg-gray-200'}`}></div>
-                    </div>
-                  ))}
+                <div className="flex justify-center items-center h-full">
+                  <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-500"></div>
                 </div>
               ) : logs.length === 0 ? (
-                // Empty State
-                <div className="h-full flex flex-col items-center justify-center text-center opacity-60">
-                  <svg className="w-16 h-16 mb-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                  <p className="text-lg font-medium">No replies dispatched yet.</p>
-                  <p className="text-sm mt-1">Waiting for incoming events...</p>
+                <div className="h-full flex flex-col items-center justify-center text-center opacity-50">
+                  <span className="text-6xl mb-4">📭</span>
+                  <p className="text-lg font-medium">No messages intercepted yet.</p>
+                  <p className="text-sm mt-1">Waiting for MacroDroid triggers...</p>
                 </div>
               ) : (
-                // Data List
-                <div className="space-y-4">
-                  {logs.map((log, index) => (
-                    <div key={index} className={`p-5 rounded-2xl border transition-all hover:scale-[1.01] duration-200 ${isDarkMode ? 'bg-white/[0.03] border-white/[0.05] hover:bg-white/[0.06]' : 'bg-white border-gray-100 shadow-sm hover:shadow-md'}`}>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className={`font-semibold text-sm px-2.5 py-1 rounded-md ${isDarkMode ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-50 text-indigo-700'}`}>
-                          @{log.sender || "Unknown User"}
-                        </span>
-                        <span className={`text-xs font-mono opacity-60`}>
-                          {log.created_at ? new Date(log.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Just now'}
-                        </span>
-                      </div>
-                      
-                      <div className="space-y-3">
-                        <div className={`p-3 rounded-xl border ${isDarkMode ? 'bg-black/20 border-white/5 text-gray-300' : 'bg-gray-50 border-gray-100 text-gray-700'}`}>
-                          <p className="text-xs font-semibold opacity-50 mb-1 uppercase tracking-wider">Received</p>
-                          <p className="text-sm">{log.message}</p>
-                        </div>
-                        
-                        <div className="flex items-start gap-2">
-                          <svg className="w-4 h-4 mt-1 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                          <div className={`flex-1 p-3 rounded-xl border ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-gray-200' : 'bg-emerald-50 border-emerald-100 text-gray-800'}`}>
-                            <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mb-1 uppercase tracking-wider">AI Dispatched</p>
-                            <p className="text-sm">{log.reply}</p>
-                          </div>
-                        </div>
+                logs.map((log, index) => (
+                  <div key={index} className="flex flex-col gap-2 w-full animate-fade-in">
+                    
+                    {/* Timestamp & Sender Badge */}
+                    <div className="flex justify-center my-2">
+                      <span className={`text-[10px] font-bold tracking-wider uppercase px-3 py-1 rounded-full ${isDarkMode ? 'bg-white/5 text-gray-500' : 'bg-gray-100 text-gray-400'}`}>
+                        {log.created_at ? new Date(log.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Just now'} • {log.sender}
+                      </span>
+                    </div>
+
+                    {/* Incoming Message Bubble (Left) */}
+                    <div className="flex w-full justify-start">
+                      <div className={`max-w-[80%] md:max-w-[70%] p-4 rounded-2xl rounded-tl-sm shadow-sm ${isDarkMode ? 'bg-[#1e1e1e] text-gray-200 border border-white/[0.05]' : 'bg-gray-100 text-gray-800 border border-gray-200/50'}`}>
+                        <p className="text-sm leading-relaxed">{log.message}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
+
+                    {/* AI Reply Bubble (Right) */}
+                    <div className="flex w-full justify-end mt-1">
+                      <div className={`max-w-[80%] md:max-w-[70%] p-4 rounded-2xl rounded-tr-sm shadow-md bg-gradient-to-br ${isDarkMode ? 'from-indigo-600 to-purple-600 text-white' : 'from-indigo-500 to-purple-500 text-white'}`}>
+                        <div className="flex items-center gap-2 mb-1.5 opacity-80">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                          <span className="text-[10px] uppercase tracking-wider font-bold">AI Response</span>
+                        </div>
+                        <p className="text-sm leading-relaxed">{log.reply}</p>
+                      </div>
+                    </div>
+
+                  </div>
+                ))
               )}
             </div>
           </div>
         </div>
-
       </main>
 
-      {/* Premium Dark-Themed Footer */}
-      <footer className={`w-full mt-auto border-t backdrop-blur-lg py-6 z-10 relative transition-colors duration-700 ${isDarkMode ? 'bg-[#050505]/80 border-white/[0.05]' : 'bg-white/80 border-gray-200'}`}>
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 opacity-70 hover:opacity-100 transition-opacity">
-            <svg className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-            </svg>
-            <span className={`text-sm font-medium tracking-wider uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Engineered for Excellence</span>
+      {/* Footer */}
+      <footer className={`w-full mt-auto border-t py-6 z-10 relative ${isDarkMode ? 'bg-[#0a0a0a] border-white/[0.05]' : 'bg-white border-gray-200'}`}>
+        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2 opacity-60">
+            <span className="text-lg">🤖</span>
+            <span className={`text-xs font-bold tracking-widest uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>NeuralReply Engine</span>
           </div>
           
-          <div className={`text-sm ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>
-            Architected by <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500 font-bold tracking-widest ml-1">MD. TOWFIQUR RAHMAN</span>
+          <div className={`text-xs font-medium tracking-wide ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+            Architected by <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500 font-black ml-1">MD. TOWFIQUR RAHMAN</span>
           </div>
         </div>
       </footer>
 
-      {/* Global CSS */}
+      {/* Global Styles */}
       <style jsx global>{`
         @keyframes gradient-x {
           0%, 100% { background-position: 0% 50%; }
@@ -215,19 +216,17 @@ export default function Home() {
           background-size: 200% 200%;
           animation: gradient-x 6s ease infinite;
         }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
+        .animate-fade-in {
+          animation: fade-in 0.4s ease-out forwards;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(156, 163, 175, 0.3);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(156, 163, 175, 0.5);
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.6); }
       `}</style>
     </div>
   );
