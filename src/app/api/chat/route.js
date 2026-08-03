@@ -32,29 +32,65 @@ export async function POST(request) {
         ২. কোনোভাবেই উল্লেখ করবে না যে তুমি একজন এআই। সরাসরি উত্তর দাও।`;
 
         // ========================================================
-        // THE ULTIMATE BYPASS: Native Fetch (No Google SDK Needed)
-        // প্যাকেজের ঝামেলা ছাড়াই সরাসরি API কল করা হচ্ছে
+        // STAGE 1: লাইভ মডেল লিস্ট নিয়ে আসা (No SDK Needed)
         // ========================================================
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+        const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
+        const modelsData = await modelsRes.json();
         
-        const aiResponse = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }]
-            })
-        });
-
-        const data = await aiResponse.json();
-
-        // যদি API থেকে কোনো এরর আসে
-        if (!aiResponse.ok) {
-            return new NextResponse(`SYSTEM ERROR: ${data.error?.message || 'Unknown API Error'}`);
+        if (!modelsData.models) {
+            return new NextResponse(`SYSTEM ERROR: Cannot fetch model list from Google.`);
         }
 
-        // রেসপন্স থেকে টেক্সট বের করা
-        let replyText = data.candidates[0].content.parts[0].text.trim();
-        replyText = replyText.replace(/^["']|["']$/g, '');
+        // শুধু ভ্যালিড মডেলগুলো ফিল্টার করা
+        const validModels = modelsData.models.filter(m => 
+            m.supportedGenerationMethods && 
+            m.supportedGenerationMethods.includes("generateContent") &&
+            m.name.includes("gemini")
+        );
+
+        let replyText = "";
+        let success = false;
+        let lastError = "";
+        let testedModels = [];
+
+        // ========================================================
+        // STAGE 2: অটো-টেস্টিং লুপ (যেটা কাজ করবে, সেটা থেকেই রিপ্লাই নেবে)
+        // ========================================================
+        for (const m of validModels) {
+            const modelName = m.name.replace('models/', '');
+            testedModels.push(modelName);
+            
+            try {
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
+                
+                const aiResponse = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
+                });
+
+                const data = await aiResponse.json();
+
+                // যদি রেসপন্স সাকসেসফুল হয়
+                if (aiResponse.ok && data.candidates && data.candidates.length > 0) {
+                    replyText = data.candidates[0].content.parts[0].text.trim();
+                    replyText = replyText.replace(/^["']|["']$/g, '');
+                    success = true;
+                    break; // কাজ হলে লুপ থেকে সঙ্গে সঙ্গে বের হয়ে যাবে
+                } else {
+                    lastError = data.error?.message || 'Unknown API Error';
+                }
+            } catch (err) {
+                lastError = err.message;
+            }
+        }
+
+        // যদি গুগলের সব মডেল ফেইল করে
+        if (!success) {
+            return new NextResponse(`SYSTEM ERROR: Tested all available models [${testedModels.join(', ')}]. Last Error: ${lastError}`);
+        }
         // ========================================================
         
         await supabase.from('message_logs').insert([{ sender, message, reply: replyText }]);
