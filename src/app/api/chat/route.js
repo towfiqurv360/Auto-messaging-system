@@ -9,7 +9,7 @@ export async function POST(request) {
         const geminiKey = process.env.GEMINI_API_KEY;
 
         if (!supabaseUrl || !supabaseKey || !geminiKey) {
-            return new NextResponse("DEBUG ERROR: Environment Variables Missing in Vercel."); 
+            return new NextResponse("DEBUG ERROR: Environment Variables Missing"); 
         }
 
         const supabase = createClient(supabaseUrl, supabaseKey);
@@ -24,31 +24,29 @@ export async function POST(request) {
             return new NextResponse(""); 
         }
 
-        // ========================================================
-        // MASTER FIX: ডাইনামিক মডেল ফেচিং (Dynamic Model Fetching)
-        // ========================================================
-        // গুগল থেকে সরাসরি লাইভ মডেলের লিস্ট নিয়ে আসা হচ্ছে
+        // গুগল থেকে লাইভ মডেলের লিস্ট আনা
         const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
         const modelsData = await modelsRes.json();
         
         if (!modelsData.models) {
-            return new NextResponse(`SYSTEM ERROR: Google API থেকে মডেল লিস্ট আনা যাচ্ছে না।`);
+            return new NextResponse(`SYSTEM ERROR: Google API Error`);
         }
 
-        // এমন একটি মডেল খোঁজা হচ্ছে যেটি 'generateContent' সাপোর্ট করে
-        const validModel = modelsData.models.find(m => 
+        // ব্লক করা মডেলগুলো (যেমন: 2.5-flash) বাদ দিয়ে শুধু ভ্যালিড মডেল ফিল্টার করা
+        const validModels = modelsData.models.filter(m => 
             m.supportedGenerationMethods && 
             m.supportedGenerationMethods.includes("generateContent") &&
-            m.name.includes("gemini") // শুধু জেমিনি মডেলগুলো ফিল্টার করা
+            m.name.includes("gemini") &&
+            !m.name.includes("2.5-flash") // এই মডেলটি নতুন ইউজারদের জন্য ব্লকড, তাই বাদ
         );
         
-        if (!validModel) {
-             return new NextResponse(`SYSTEM ERROR: তোমার API Key-এর জন্য কোনো সাপোর্টেড মডেল পাওয়া যায়নি।`);
+        if (validModels.length === 0) {
+             return new NextResponse(`SYSTEM ERROR: No valid models found for your API Key.`);
         }
 
-        // মডেলের নাম থেকে 'models/' অংশটুকু বাদ দিয়ে আসল নাম নেওয়া
-        const activeModelName = validModel.name.replace('models/', '');
-        // ========================================================
+        // লিস্টের একেবারে শেষের (সবচেয়ে নতুন ও অ্যাক্টিভ) মডেলটি সিলেক্ট করা
+        const latestModel = validModels[validModels.length - 1];
+        const activeModelName = latestModel.name.replace('models/', '');
 
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({ model: activeModelName });
