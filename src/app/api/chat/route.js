@@ -18,30 +18,40 @@ export async function POST(request) {
             return new NextResponse(""); 
         }
 
+        // ========================================================
+        // LOOP PREVENTION & SPAM FILTER
+        // ========================================================
         const ignoredSenders = ["Family Group", "University Friends", "Boss", "Unknown"];
-        if (ignoredSenders.includes(sender) || message.includes('@')) {
+        const lowerSender = sender.toLowerCase();
+        
+        // যদি নিজের নাম বা 'You' থেকে নোটিফিকেশন আসে, তবে চুপ থাকবে
+        if (ignoredSenders.includes(sender) || message.includes('@') || lowerSender.includes('towfiq') || lowerSender === 'you') {
             return new NextResponse(""); 
         }
 
-        const prompt = `তুমি MD. TOWFIQUR RAHMAN-এর পার্সোনাল স্মার্ট অ্যাসিস্ট্যান্ট হিসেবে মেসেঞ্জারে রিপ্লাই দিচ্ছ। 
+        // ========================================================
+        // HUMAN IMPERSONATION PROMPT (তোমার হয়ে কথা বলবে)
+        // ========================================================
+        const prompt = `তুমি নিজেই MD. TOWFIQUR RAHMAN (ডাকনাম: তৌফিক)। তুমি মেসেঞ্জারে তোমার পরিচিত মানুষের সাথে কথা বলছ।
         প্রেরক: ${sender}
         মেসেজ: "${message}"
 
-        নির্দেশনা:
-        ১. প্রেরক ঠিক যে ভাষায় মেসেজ দিয়েছে, ঠিক সেই ভাষাতেই মার্জিত ও বন্ধুসুলভ উত্তর দাও।
-        ২. কোনোভাবেই উল্লেখ করবে না যে তুমি একজন এআই। সরাসরি উত্তর দাও।`;
+        গুরুত্বপূর্ণ নির্দেশনা:
+        ১. তুমি কোনো অ্যাসিস্ট্যান্ট, প্রতিনিধি, বট বা AI নও। তুমি নিজেই তৌফিক।
+        ২. কখনোই বলবে না যে "আমি তৌফিকের অ্যাসিস্ট্যান্ট" বা "তৌফিকের পক্ষ থেকে বলছি"। 
+        ৩. কেউ মেসেজ দিলে ঠিক যেভাবে একজন মানুষ ক্যাজুয়াল রিপ্লাই দেয় (যেমন: "হ্যাঁ ভাই, বলো", "কী অবস্থা?", "আছি আলহামদুলিল্লাহ, তুমি কেমন আছো?", "একটু বিজি আছি, পরে কথা বলি"), ঠিক সেভাবেই শর্ট এবং স্মার্ট উত্তর দেবে।
+        ৪. উত্তরের ভাষা হবে প্রেরকের ভাষার মতো (বাংলা বা বাংলিশ)। একদম স্বাভাবিক মানুষের মতো আচরণ করবে।`;
 
         // ========================================================
-        // STAGE 1: লাইভ মডেল লিস্ট নিয়ে আসা (No SDK Needed)
+        // LIVE MODEL SCANNING ENGINE (Native Fetch)
         // ========================================================
         const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
         const modelsData = await modelsRes.json();
         
         if (!modelsData.models) {
-            return new NextResponse(`SYSTEM ERROR: Cannot fetch model list from Google.`);
+            return new NextResponse(""); 
         }
 
-        // শুধু ভ্যালিড মডেলগুলো ফিল্টার করা
         const validModels = modelsData.models.filter(m => 
             m.supportedGenerationMethods && 
             m.supportedGenerationMethods.includes("generateContent") &&
@@ -50,15 +60,9 @@ export async function POST(request) {
 
         let replyText = "";
         let success = false;
-        let lastError = "";
-        let testedModels = [];
 
-        // ========================================================
-        // STAGE 2: অটো-টেস্টিং লুপ (যেটা কাজ করবে, সেটা থেকেই রিপ্লাই নেবে)
-        // ========================================================
         for (const m of validModels) {
             const modelName = m.name.replace('models/', '');
-            testedModels.push(modelName);
             
             try {
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${geminiKey}`;
@@ -73,31 +77,26 @@ export async function POST(request) {
 
                 const data = await aiResponse.json();
 
-                // যদি রেসপন্স সাকসেসফুল হয়
                 if (aiResponse.ok && data.candidates && data.candidates.length > 0) {
                     replyText = data.candidates[0].content.parts[0].text.trim();
                     replyText = replyText.replace(/^["']|["']$/g, '');
                     success = true;
-                    break; // কাজ হলে লুপ থেকে সঙ্গে সঙ্গে বের হয়ে যাবে
-                } else {
-                    lastError = data.error?.message || 'Unknown API Error';
+                    break; 
                 }
             } catch (err) {
-                lastError = err.message;
+                continue;
             }
         }
 
-        // যদি গুগলের সব মডেল ফেইল করে
         if (!success) {
-            return new NextResponse(`SYSTEM ERROR: Tested all available models [${testedModels.join(', ')}]. Last Error: ${lastError}`);
+            return new NextResponse(""); 
         }
-        // ========================================================
         
         await supabase.from('message_logs').insert([{ sender, message, reply: replyText }]);
         
         return new NextResponse(replyText);
 
     } catch (error) {
-        return new NextResponse(`SYSTEM ERROR: ${error.message}`); 
+        return new NextResponse(""); 
     }
 }
