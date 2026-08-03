@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
@@ -24,20 +23,6 @@ export async function POST(request) {
             return new NextResponse(""); 
         }
 
-        const genAI = new GoogleGenerativeAI(geminiKey);
-        
-        // ========================================================
-        // PERMANENT SOLUTION: Fallback Array
-        // গুগল যেকোনো মডেল ব্লক করলেও, এই লিস্টের কোনো না কোনোটা কাজ করবেই।
-        // ========================================================
-        const safeModels = [
-            "gemini-1.5-flash",       // ফার্স্ট চয়েস (সবচেয়ে ফাস্ট)
-            "gemini-1.5-flash-8b",    // সেকেন্ড চয়েস (লাইটওয়েট ও ফ্রি)
-            "gemini-1.5-flash-001",   // থার্ড চয়েস (পুরোনো কিন্তু স্টেবল)
-            "gemini-1.5-flash-002",   // ফোর্থ চয়েস
-            "gemini-1.0-pro"          // আল্টিমেট ফলব্যাক (কখনো ফেল করে না)
-        ];
-
         const prompt = `তুমি MD. TOWFIQUR RAHMAN-এর পার্সোনাল স্মার্ট অ্যাসিস্ট্যান্ট হিসেবে মেসেঞ্জারে রিপ্লাই দিচ্ছ। 
         প্রেরক: ${sender}
         মেসেজ: "${message}"
@@ -46,31 +31,30 @@ export async function POST(request) {
         ১. প্রেরক ঠিক যে ভাষায় মেসেজ দিয়েছে, ঠিক সেই ভাষাতেই মার্জিত ও বন্ধুসুলভ উত্তর দাও।
         ২. কোনোভাবেই উল্লেখ করবে না যে তুমি একজন এআই। সরাসরি উত্তর দাও।`;
 
-        let replyText = "";
-        let success = false;
-        let lastError = "";
+        // ========================================================
+        // THE ULTIMATE BYPASS: Native Fetch (No Google SDK Needed)
+        // প্যাকেজের ঝামেলা ছাড়াই সরাসরি API কল করা হচ্ছে
+        // ========================================================
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+        
+        const aiResponse = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }]
+            })
+        });
 
-        // লুপ চালিয়ে একটার পর একটা মডেল ট্রাই করবে
-        for (const modelName of safeModels) {
-            try {
-                const model = genAI.getGenerativeModel({ model: modelName });
-                const result = await model.generateContent(prompt);
-                
-                replyText = result.response.text().trim().replace(/^["']|["']$/g, '');
-                success = true;
-                break; // সফল হলে লুপ থেকে বের হয়ে যাবে
-                
-            } catch (err) {
-                lastError = err.message;
-                // ফেইল করলে নীরবে পরের মডেলে চলে যাবে
-                continue; 
-            }
+        const data = await aiResponse.json();
+
+        // যদি API থেকে কোনো এরর আসে
+        if (!aiResponse.ok) {
+            return new NextResponse(`SYSTEM ERROR: ${data.error?.message || 'Unknown API Error'}`);
         }
 
-        // যদি লিস্টের ৫টি মডেলই ফেইল করে (যেটা অসম্ভব)
-        if (!success) {
-             return new NextResponse(`SYSTEM ERROR: All fallback models failed. Last Error: ${lastError}`);
-        }
+        // রেসপন্স থেকে টেক্সট বের করা
+        let replyText = data.candidates[0].content.parts[0].text.trim();
+        replyText = replyText.replace(/^["']|["']$/g, '');
         // ========================================================
         
         await supabase.from('message_logs').insert([{ sender, message, reply: replyText }]);
