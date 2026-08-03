@@ -14,13 +14,25 @@ export async function POST(request) {
         
         if (!sender || !message) return new NextResponse("");
 
+        const lowerSender = sender.toLowerCase();
+        const lowerMessage = message.toLowerCase();
+
         // ========================================================
-        // 1. SPAM & MENTION FILTER (Input Preprocessing)
+        // 1. SPAM & SYSTEM VARIABLE INTERCEPTOR (The Bug Fix)
         // ========================================================
         const ignoredSenders = ["Family Group", "University Friends", "Boss", "Unknown"];
-        const lowerSender = sender.toLowerCase();
-        
         if (ignoredSenders.includes(sender) || message.includes('@') || lowerSender.includes('towfiq') || lowerSender === 'you') {
+            return new NextResponse(""); 
+        }
+
+        // যদি MacroDroid থেকে ভুল করে সিস্টেম ভেরিয়েবল বা টিকার টেক্সট চলে আসে, তবে সাইলেন্টলি ড্রপ করবে
+        if (lowerMessage.includes('notification_ticker') || lowerMessage.includes('notification') || lowerMessage.includes('ticker')) {
+            return new NextResponse("");
+        }
+
+        // মিডিয়া বা ফাঁকা টেক্সট ফিল্টার
+        const systemKeywords = ["sticker", "স্টিকার", "sent a photo", "photo", "ছবি", "attachment", "gif"];
+        if (systemKeywords.some(keyword => lowerMessage.includes(keyword)) || message.trim().length <= 1) {
             return new NextResponse(""); 
         }
 
@@ -29,7 +41,6 @@ export async function POST(request) {
         // ========================================================
         let historyContext = "";
         try {
-            // এই ইউজারের সাথে হওয়া লাস্ট ৩টি মেসেজ ডেটাবেস থেকে তুলে আনা হচ্ছে
             const { data } = await supabase
                 .from('message_logs')
                 .select('message, reply')
@@ -39,14 +50,14 @@ export async function POST(request) {
             
             if (data && data.length > 0) {
                 const historyStr = data.reverse().map(row => `সে বলেছিল: "${row.message}" | তুমি উত্তর দিয়েছিলে: "${row.reply}"`).join('\n');
-                historyContext = `\n\n[পূর্ববর্তী কথোপকথন (Context - এই অনুযায়ী বর্তমান মেসেজের উত্তর মেলাবে)]:\n${historyStr}`;
+                historyContext = `\n\n[পূর্ববর্তী কথোপকথন (Context)]:\n${historyStr}`;
             }
         } catch (err) {
-            console.error("History fetch failed, ignoring context.");
+            console.error("History fetch failed");
         }
 
         // ========================================================
-        // 3. ADVANCED SYSTEM PROMPT (Tone & Validation)
+        // 3. ADVANCED SYSTEM PROMPT
         // ========================================================
         const prompt = `তুমি MD. TOWFIQUR RAHMAN (তৌফিক)। তুমি রাজশাহীতে থাকো এবং একজন জুনিয়র ফ্রন্টএন্ড ডেভেলপার। 
         
@@ -54,13 +65,12 @@ export async function POST(request) {
         বর্তমান মেসেজ: "${message}" ${historyContext}
 
         কড়া নিয়ম (Strict Rules):
-        ১. পূর্ববর্তী কথোপকথন (যদি থাকে) দেখে বোঝো কথার ফ্লো কী। আগের কথার সাথে লজিক্যাল মিল রেখে উত্তর দাও।
-        ২. মেসেজটি ছবি/স্টিকার/ভয়েস (যেমন: 'Sticker', 'Sent a photo') হলে শুধু বলবে: "ভাই, ছবি/ভয়েসটা একটু পরে দেখছি।"
-        ৩. তুমি AI বা Language Model নও। "As an AI..." টাইপের কোনো কথা বলা সম্পূর্ণ নিষেধ।
-        ৪. অযথা প্রশ্ন করে লুপ তৈরি করবে না। স্বাভাবিক ক্যাজুয়াল ভাষায় (১-২ লাইনে) উত্তর দিয়ে কথা শেষ করবে।`;
+        ১. প্রেরকের মেসেজটি মনোযোগ দিয়ে পড়ো এবং তার সাথে লজিক্যাল মিল রেখে উত্তর দাও। যেমন সে "Khabe?" বা "Ki koro" বললে সেটার স্বাভাবিক ক্যাজুয়াল উত্তর দাও।
+        ২. তুমি AI নও। "As an AI..." টাইপের কোনো কথা বলা সম্পূর্ণ নিষেধ।
+        ৩. অযথা প্রশ্ন করে লুপ তৈরি করবে না। স্বাভাবিক ক্যাজুয়াল ভাষায় (১-২ লাইনে) উত্তর দিয়ে কথা শেষ করবে।`;
 
         // ========================================================
-        // 4. LIVE MODEL SCANNING
+        // 4. LIVE MODEL SCANNING & DISPATCH
         // ========================================================
         const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
         const modelsData = await modelsRes.json();
@@ -75,9 +85,6 @@ export async function POST(request) {
         let replyText = "";
         let success = false;
 
-        // ========================================================
-        // 5. TEMPERATURE CONTROL & AI DISPATCH
-        // ========================================================
         for (const m of validModels) {
             const modelName = m.name.replace('models/', '');
             try {
@@ -89,8 +96,8 @@ export async function POST(request) {
                     body: JSON.stringify({
                         contents: [{ parts: [{ text: prompt }] }],
                         generationConfig: {
-                            temperature: 0.3, // Hallucination এবং উল্টাপাল্টা কথা কমানোর জন্য টেম্পারেচার লো করা হলো
-                            maxOutputTokens: 60 // উত্তর যেন অযথাই বড় না হয়
+                            temperature: 0.3,
+                            maxOutputTokens: 60
                         }
                     })
                 });
@@ -100,7 +107,6 @@ export async function POST(request) {
                 if (aiResponse.ok && data.candidates && data.candidates.length > 0) {
                     replyText = data.candidates[0].content.parts[0].text.trim().replace(/^["']|["']$/g, '');
                     
-                    // 6. RESPONSE VALIDATION (ফাঁকা বা AI টাইপ উত্তর ফিল্টার)
                     if (replyText.length > 0 && !replyText.toLowerCase().includes("as an ai")) {
                         success = true;
                         break; 
