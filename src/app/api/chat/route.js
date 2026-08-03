@@ -24,7 +24,9 @@ export async function POST(request) {
             return new NextResponse(""); 
         }
 
-        // গুগল থেকে লাইভ মডেলের লিস্ট আনা
+        // ========================================================
+        // STRICT FREE-TIER FILTERING
+        // ========================================================
         const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${geminiKey}`);
         const modelsData = await modelsRes.json();
         
@@ -32,21 +34,30 @@ export async function POST(request) {
             return new NextResponse(`SYSTEM ERROR: Google API Error`);
         }
 
-        // ব্লক করা মডেলগুলো (যেমন: 2.5-flash) বাদ দিয়ে শুধু ভ্যালিড মডেল ফিল্টার করা
+        // কড়া ফিল্টার: Preview, Experimental এবং ব্লকড মডেলগুলো বাদ দেওয়া হচ্ছে
         const validModels = modelsData.models.filter(m => 
             m.supportedGenerationMethods && 
             m.supportedGenerationMethods.includes("generateContent") &&
             m.name.includes("gemini") &&
-            !m.name.includes("2.5-flash") // এই মডেলটি নতুন ইউজারদের জন্য ব্লকড, তাই বাদ
+            !m.name.includes("preview") &&      // প্রিভিউ মডেল বাদ
+            !m.name.includes("experimental") && // এক্সপেরিমেন্টাল বাদ
+            !m.name.includes("2.5-flash")       // ব্লকড মডেল বাদ
         );
         
         if (validModels.length === 0) {
-             return new NextResponse(`SYSTEM ERROR: No valid models found for your API Key.`);
+             return new NextResponse(`SYSTEM ERROR: No valid free-tier models found.`);
         }
 
-        // লিস্টের একেবারে শেষের (সবচেয়ে নতুন ও অ্যাক্টিভ) মডেলটি সিলেক্ট করা
-        const latestModel = validModels[validModels.length - 1];
-        const activeModelName = latestModel.name.replace('models/', '');
+        // সবচেয়ে স্টেবল 1.5-flash (যেমন: 001, 002 বা 8b) ভার্সন খোঁজা হচ্ছে
+        let selectedModel = validModels.find(m => m.name.includes("gemini-1.5-flash"));
+        
+        // যদি নির্দিষ্ট flash মডেল না পায়, তবে লিস্টের প্রথম স্টেবল মডেলটি নেবে
+        if (!selectedModel) {
+            selectedModel = validModels[0];
+        }
+
+        const activeModelName = selectedModel.name.replace('models/', '');
+        // ========================================================
 
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({ model: activeModelName });
